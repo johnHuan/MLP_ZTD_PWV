@@ -1,0 +1,1712 @@
+﻿<!DOCTYPE html>
+<!-- saved from url=(0022)http://blog.csdn.net/electroniXtar/ -->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <title>数字城市供热管网</title>
+    <script src="http://code.jquery.com/jquery-1.11.1.min.js"></script>
+    <!-- 地图基础类 -->
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=RQ6KOr913IqFSANnqEs0OZ3qWeutVB1I"></script>
+    <!-- 量具类 -->
+    <script type="text/javascript" src="http://api.map.baidu.com/library/DistanceTool/1.2/src/DistanceTool_min.js"></script>
+    <!--加载鼠标绘制工具-->
+    <script type="text/javascript" src="http://api.map.baidu.com/library/DrawingManager/1.4/src/DrawingManager_min.js"></script>
+    <link rel="stylesheet" href="http://api.map.baidu.com/library/DrawingManager/1.4/src/DrawingManager_min.css" />
+    <style type="text/css">
+        body, html, #container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            font-family: "微软雅黑";
+        }
+
+        .anchorBL {
+            bottom: 80px !important;
+        }
+
+        .BMapLib_Drawing_panel {
+            top: 40px !important;
+            left: 100px !important;
+        }
+
+        .BMap_cpyCtrl, .anchorBL a {
+            display: none !important;
+        }
+
+        p.bar {
+            width: 250px;
+            position: absolute;
+            left: 2px;
+            bottom: 15px;
+            height: 25px;
+            line-height: 25px;
+            font-size: 12px;
+            color: #666;
+            background-color: #eee;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+
+
+    <div id="container" style="resize:both;zoom:1;position:relative;-webkit-transition: all 0.5s ease-in-out;transition: all 0.5s ease-in-out;"></div>
+    <p class="bar">
+        当前坐标：
+        <span class="status"></span>
+    </p>
+    <script>
+
+        // 百度地图
+        // 初始化地图函数：
+        function initMap() {
+            createMap();                // 创建地图
+            setMapEvent();              // 设置地图事件
+            addMapControl();            // 向地图添加控件
+        }
+
+
+        // 创建地图
+        function createMap() {
+            map = new BMap.Map("container", { enableMapClick: false });
+            //map.centerAndZoom(new BMap.Point(123.426381, 41.772129), 17);
+
+            map.centerAndZoom(new BMap.Point(123.471799, 41.80709), 6);
+        }
+
+        // 添加键盘事件
+        function setMapEvent() {
+            map.enableScrollWheelZoom();            // 中轮缩放
+            map.enableKeyboard();                   // 键盘操作
+            map.enableDragging();                   // 允许移动
+            map.enableDoubleClickZoom()             // 双击操作, 左键双击方法，右键双击缩小
+        }
+
+        // 对于兴趣点点击打开信息窗体查询详情
+        function addClickHandler(target, window) {
+            target.addEventListener("click", function () {
+                target.openInfoWindow(window);
+            });
+        }
+
+
+        // 向地图添加控件
+        function addMapControl() {
+            // 左下角的比例尺控件
+            var scaleControl = new BMap.ScaleControl({ anchor: BMAP_ANCHOR_BOTTOM_LEFT });
+            scaleControl.setUnit(BMAP_UNIT_IMPERIAL);
+            map.addControl(scaleControl);
+
+            // 添加定位控件
+            var geolocationControl = new BMap.GeolocationControl();
+            geolocationControl.addEventListener("locationSuccess", function (e) {
+                // 定位成功事件
+                var address = '';
+                address += e.addressComponent.province;
+                address += e.addressComponent.city;
+                address += e.addressComponent.district;
+                address += e.addressComponent.street;
+                address += e.addressComponent.streetNumber;
+                alert("当前定位地址为：" + address);
+            });
+            geolocationControl.addEventListener("locationError", function (e) {
+                // 定位失败事件
+                alert(e.message);
+            });
+            map.addControl(geolocationControl);
+
+
+            // 左上角的导航控件
+            var navControl = new BMap.NavigationControl({
+                // 靠左上角位置
+                anchor: BMAP_ANCHOR_TOP_LEFT,
+                // LARGE类型
+                type: BMAP_NAVIGATION_CONTROL_LARGE,
+                // 启用显示定位
+                enableGeolocation: true
+            });
+            map.addControl(navControl);
+
+            // 添加右上角的地图类型
+            var mapStyleControl = new BMap.MapTypeControl({
+                mapTypes: [
+                            BMAP_NORMAL_MAP,
+                            BMAP_HYBRID_MAP,
+                            BMAP_SATELLITE_MAP
+                ]
+            });
+            map.addControl(mapStyleControl);
+
+            // 最右下角的地图缩略图控件
+            var overviewControl = new BMap.OverviewMapControl({ anchor: BMAP_ANCHOR_BOTTOM_RIGHT, isOpen: false });
+            map.addControl(overviewControl);
+        }
+
+        var map;
+        initMap();
+        // 在状态栏显示实时坐标
+        map.addEventListener('mousemove', function (e) {
+            $(".status").html(e.point.lng + ", " + e.point.lat);
+        });
+
+        // 添加多边形覆盖物(模型)
+        function addPolygon() {
+            var polygon1 = new BMap.Polygon([
+                new BMap.Point(123.43753309462, 41.793202582465),
+                new BMap.Point(123.44027533637, 41.793202582465),
+                new BMap.Point(123.44027533637, 41.79524468316),
+                new BMap.Point(123.43753309462, 41.79524468316)
+            ],
+            {
+                strokeColor: "red",
+                strokeWeight: 2,
+                strokeOpacity: 0.5
+            });
+            polygon1.addEventListener("click", overlay_event);
+
+            var polygon2 = new BMap.Polygon(
+                [
+                    new BMap.Point(123.395109, 41.760393),
+                    new BMap.Point(123.398900, 41.761702),
+                    new BMap.Point(123.409781, 41.760184),
+                    new BMap.Point(123.416204, 41.753769),
+                    new BMap.Point(123.424838, 41.758377),
+                    new BMap.Point(123.426804, 41.760027),
+                    new BMap.Point(123.427155, 41.761231),
+                    new BMap.Point(123.427752, 41.771572),
+                    new BMap.Point(123.424136, 41.771598),
+                    new BMap.Point(123.420311, 41.773090),
+                    new BMap.Point(123.417362, 41.770761),
+                    new BMap.Point(123.405253, 41.769478),
+                    new BMap.Point(123.406937, 41.771991),
+                    new BMap.Point(123.395354, 41.776703),
+                    new BMap.Point(123.390651, 41.770394),
+                    new BMap.Point(123.391388, 41.768012),
+                    new BMap.Point(123.395144, 41.760419),
+                    new BMap.Point(123.395109, 41.760393)
+                ],
+               {
+                   strokeColor: "blue",
+                   strokeWeight: 2,
+                   strokeOpacity: 0.5
+               });
+
+            var polygon3 = new BMap.Polygon([
+               new BMap.Point(123.431396484375, 41.7907687878513),
+               new BMap.Point(123.434143066406, 41.7907687878513),
+               new BMap.Point(123.434143066406, 41.7928165610518),
+               new BMap.Point(123.431396484375, 41.7928165610518)
+            ],
+           {
+               strokeColor: "black",
+               strokeWeight: 2,
+               strokeOpacity: 0.5
+           });
+            polygon3.addEventListener("click", overlay_event);
+            map.addOverlay(polygon1);
+            map.addOverlay(polygon2);
+            map.addOverlay(polygon3);
+        }
+
+        //addPolygon();
+
+
+        // 绘制模型区域
+        function drawMdoelArea(modelname, minL, minB, maxL, maxB) {
+
+            var polygon = new BMap.Polygon([
+                new BMap.Point(minL, minB),
+                new BMap.Point(maxL, minB),
+                new BMap.Point(maxL, maxB),
+                new BMap.Point(minL, maxB)
+            ],
+            {
+                //strokeColor: "red",
+                //strokeWeight: 2,
+                //strokeOpacity: 0.1,
+                //fillOpacity: 0.3
+
+                strokeColor: LayerColor[6],
+                strokeWeight: LayerWeight[6],
+                strokeOpacity: LayerOpacity[6],
+                fillOpacity: LayerOpacity[6] - 0.3 > 0 ? LayerOpacity[6] - 0.3 : LayerOpacity[6]
+            });
+
+            polygon.addEventListener("click", overlay_event);
+            map.addOverlay(polygon);
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "moxing";
+        }
+
+        // 清除所有覆盖物
+        function ck_clear() {
+            map.clearOverlays();
+        }
+
+
+        // 覆盖物的点击事件   获取marker的属性
+        // C# 与JS相互传值调用博客地址  https://blog.csdn.net/gavin_dyson/article/details/50487389
+        function overlay_event(e) {
+            var p = e.target;
+            if (p instanceof BMap.Marker) {
+                alert("该覆盖物是点，点的坐标是：" + p.getPosition().lng + "," + p.getPosition().lat);
+            } else if (p instanceof BMap.Circle) {
+                alert("该覆盖物是圆，圆的半径是：" + p.getRadius() + "，圆的中心点坐标是：" + p.getCenter().lng + "," + p.getCenter().lat);
+            } else if (p instanceof BMap.Polyline) {
+                alert("该覆盖物是折线，所画点的个数是：" + p.getPath().length);
+            } else if (p instanceof BMap.Polygon) {
+                var str = e.point.lng + "," + e.point.lat;
+                window.external.getModelClickCoord(str);
+            } else {
+                alert("无法获知该覆盖物类型");
+            }
+        }
+
+
+        // 绘制当前加载的四块模型区域
+        function drawRect(sl, sb, el, eb) {
+            var overlays = map.getOverlays();
+            for (var i = 0; i < overlays.length; i++) {
+                if (overlays[i].z.strokeColor == "blue") {
+                    map.removeOverlay(overlays[i]);
+                }
+            }
+            var polyline = new BMap.Polyline([
+                new BMap.Point(sl, sb),
+                new BMap.Point(el, sb),
+                new BMap.Point(el, eb),
+                new BMap.Point(sl, eb),
+                new BMap.Point(sl, sb)
+            ],
+            {
+                strokeColor: "blue",
+                strokeWeight: 2,
+                strokeOpacity: 0.5
+            });
+
+            map.addOverlay(polyline);
+
+        }
+
+        // 改变中心点
+        function changeCenter(lng, lat) {
+            var point = new BMap.Point(lng, lat)
+            map.setCenter(point);
+        }
+
+
+        // 创建标注
+        function addMarker(point, label) {
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/tuzhi.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point, {
+                icon: myIcon,
+                size: new BMap.Size(10, 10),
+                title: "图纸编号： " + label.content
+            });
+            map.addOverlay(marker);
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "tuzhi";
+
+            marker.setLabel(label);
+            marker.addEventListener('click', function (e) {
+                window.external.openDrawingsSpace(label.content);
+            });
+        }
+
+        // 执行标注绘制
+        function executeAddMarker(lng, lat, labelInfo) {
+            var point = new BMap.Point(lng, lat);
+            var label = new BMap.Label(labelInfo, { offset: new BMap.Size(10, -18) });
+            addMarker(point, label);
+        }
+
+        var LayerWeight = [];//全局线宽
+        var LayerColor = [];//全局显色
+        var LayerOpacity = [];//全局透明度
+
+        // 绘制主干线
+        function drawMainLine() {
+
+            var arr = [];
+            for (var i = 0; i < arguments.length; i++) {
+                var p = arguments[i].split(",");
+                arr.push(new BMap.Point(p[0], p[1]));
+            }
+            var polyline = new BMap.Polyline(
+            //arr,
+            //{
+            //    strokeColor: "#FF0000",
+            //    strokeWeight: 3
+            //});
+            arr,
+            {
+                strokeColor: LayerColor[0],
+                strokeWeight: LayerWeight[0],
+                strokeOpacity: LayerOpacity[0]
+            });
+            map.addOverlay(polyline);
+            polyline.addEventListener("click", pipeLine_event);
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "zhuganxian";
+
+        }
+
+        // 绘制分支线
+        function drawSubLine() {
+            var arr = [];
+            for (var i = 0; i < arguments.length; i++) {
+                var p = arguments[i].split(",");
+                arr.push(new BMap.Point(p[0], p[1]));
+            }
+            var polyline = new BMap.Polyline(
+            //arr,
+            //{
+            //    strokeColor: "#FF00FF",
+            //    strokeWeight: 3
+            //});
+            arr,
+            {
+                strokeColor: LayerColor[1],
+                strokeWeight: LayerWeight[1],
+                strokeOpacity: LayerOpacity[1]
+            });
+            map.addOverlay(polyline);
+
+            polyline.addEventListener("click", pipeLine_event);
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "fenzhixian";
+
+
+        }
+
+        // 选中的线条
+        function drawSelectionLine(arr) {
+
+            var coor = [];
+            for (var i in arr) {
+                coor.push(new BMap.Point(arr[i].split(",")[0], arr[i].split(",")[1]))
+            }
+            var polyline = new BMap.Polyline(
+            coor,
+            {
+                strokeColor: "yellow",
+                strokeWeight: 4
+            });
+            map.addOverlay(polyline);
+            polyline.addEventListener("click", pipeLine_event);
+        }
+
+        function drawDemoLine() {
+            var arr = [];
+            map.panTo(new BMap.Point(arguments[0], arguments[1]))
+            arr.push(new BMap.Point(arguments[0], arguments[1]));
+            arr.push(new BMap.Point(arguments[2], arguments[3]));
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: "#FF0000",
+                strokeWeight: 3
+            });
+            map.addOverlay(polyline);
+            polyline.addEventListener("click", pipeDemoLine_event);
+        }
+        //drawNEULine(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 123.42479957117, 41.77139941045, 21, 22, 123.42363574786, 41.771466293064, "#FF0000");
+
+        function drawNEULine() {
+
+            var arr = [];
+            arr.push(new BMap.Point(arguments[19], arguments[20]));
+            arr.push(new BMap.Point(arguments[23], arguments[24]));
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: arguments[25],
+                strokeWeight: 3
+            });
+            map.addOverlay(polyline);
+            polyline.addEventListener("click", pipeDemoLine_event);
+
+
+        }
+
+        function pipeLine_event(e) {
+            var p = e.target;
+            //if (p instanceof BMap.Marker) {
+            //    alert("该覆盖物是点，点的坐标是：" + p.getPosition().lng + "," + p.getPosition().lat);
+            //} else if (p instanceof BMap.Circle) {
+            //    alert("该覆盖物是圆，圆的半径是：" + p.getRadius() + "，圆的中心点坐标是：" + p.getCenter().lng + "," + p.getCenter().lat);
+            //} else
+            if (p instanceof BMap.Polyline) {
+                //alert("该覆盖物是折线，所画点的个数是：" + p.getPath().length);
+                // 管线点击事件,获取到点击的线条的坐标
+                //console.log(p.gf[2]);
+                var coordinate = [];
+                for (var i in p.gf[2]) {
+                    // 加到数组传出去
+                    coordinate.push(p.gf[2][i].lng + "," + p.gf[2][i].lat);
+                }
+                // 将选中的管线颜色变换
+                drawSelectionLine(coordinate);
+
+                window.external.pipelineInfo(coordinate.toString());
+                //console.log(e.point.lng+","+e.point.lat);
+            } else if (p instanceof BMap.Polygon) {
+                var str = e.point.lng + "," + e.point.lat;
+                window.external.open3D(str);
+            } else {
+                alert("无法获知该覆盖物类型");
+            }
+        }
+
+        function pipeDemoLine_event(e) {
+            var p = e.target;
+            //if (p instanceof BMap.Marker) {
+            //    alert("该覆盖物是点，点的坐标是：" + p.getPosition().lng + "," + p.getPosition().lat);
+            //} else if (p instanceof BMap.Circle) {
+            //    alert("该覆盖物是圆，圆的半径是：" + p.getRadius() + "，圆的中心点坐标是：" + p.getCenter().lng + "," + p.getCenter().lat);
+            //} else
+            if (p instanceof BMap.Polyline) {
+                //alert("该覆盖物是折线，所画点的个数是：" + p.getPath().length);
+                // 管线点击事件,获取到点击的线条的坐标
+                //console.log(p.gf[2]);
+                var coordinate = [];
+                for (var i in p.gf[3]) {
+                    // 加到数组传出去
+                    coordinate.push(p.gf[3][i].lng + "," + p.gf[3][i].lat);
+                }
+                // 将选中的管线颜色变换
+                drawSelectionLine(coordinate);
+
+                window.external.pipelineInfo(coordinate.toString());
+                //console.log(e.point.lng+","+e.point.lat);
+            } else if (p instanceof BMap.Polygon) {
+                var str = e.point.lng + "," + e.point.lat;
+                window.external.open3D(str);
+            } else {
+                alert("无法获知该覆盖物类型");
+            }
+        }
+
+        // 绘制楼号线
+        function drawLouHaoXian() {
+
+            var arr = [];
+            arr.push(new BMap.Point(arguments[0], arguments[1]));
+            arr.push(new BMap.Point(arguments[2], arguments[3]));
+            map.panTo(arr[0]);
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: "#33AB40",
+                strokeWeight: 2
+            });
+            map.addOverlay(polyline);
+            map.panTo(new BMap.Point(arguments[0], arguments[1]))
+
+        }
+
+        // 绘制二级网
+        function drawSuozhanGuanXian() {
+            var arr = [];
+            map.panTo(new BMap.Point(arguments[0], arguments[1]))
+            arr.push(new BMap.Point(arguments[0], arguments[1]));
+            arr.push(new BMap.Point(arguments[2], arguments[3]));
+
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: "#D66B71",
+                strokeWeight: 2
+            });
+            map.addOverlay(polyline);
+
+        }
+
+        // 添加漏点
+        function addleakPoint() {
+            var point = new BMap.Point(arguments[10], arguments[11]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/ld.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(30, 40)
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[0] + "号漏点</h4>" +
+            "<p>进水管/回水管： " + arguments[1] + "</p>" +
+            "<p>主干线/分支线： " + arguments[2] + "</p>" +
+            "<p>管径： " + arguments[3] + "</p>" +
+            "<p>泄露类型： " + arguments[4] + "</p>" +
+            "<p>泄露原因： " + arguments[5] + "</p>" +
+            "<p>维修者： " + arguments[6] + "</p>" +
+            "<p>相关位置： " + arguments[7] + "</p>" +
+            "<p>所在街道： " + arguments[8] + "</p>" +
+            "<p>泄露日期： " + arguments[9] + "</p>";
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "loudian";
+        }
+        // 添加漏点
+        function adddemoleakPoint() {
+            var point = new BMap.Point(arguments[6], arguments[7]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/ico/mark_b.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(50, 50)
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[0] + "号漏点</h4>" +
+            "<p>泄露类型： " + arguments[1] + "</p>" +
+            "<p>所在街道： " + arguments[2] + "</p>" +
+            "<p>泄露原因： " + arguments[3] + "</p>" +
+            "<p>维修者： " + arguments[4] + "</p>" +
+            "<p>泄露日期： " + arguments[5] + "</p>";
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        // 绘制换热站标注
+        function addHeatStation() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/hrz.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(10, 10),
+                    title: arguments[3]
+                });
+            var label = new BMap.Label(arguments[3], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[3] + "号换热站</h4>" +
+            "<p> 供暖面积: " + arguments[2] + "</p>" +
+            "<p> 换热站编号: " + arguments[3] + "</p>";
+            html += '<p><button onClick="openTemperature(\'' + arguments[3] + '\');" value="' + arguments[3] + '">查看详情</button></p>';
+            if (arguments[3] == "富工花园") {
+                html += '<p><button onClick="openTemperature(\'a' + arguments[3] + '\');" value="' + arguments[3] + '">查看相关二级网</button></p>';
+            }
+            if (arguments[4] == 1) {
+                html += '<p><button onClick="openStation(\'' + arguments[3] + '\');" value="' + arguments[3] + '">打开三维模型</button></p>';
+            }
+
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "huanrezhan";
+
+        }
+
+        // 打开换热站供C#调用
+        function openStation() {
+            window.external.openStation(arguments[0]);
+        }
+
+        function openTemperature() {
+            window.external.openTemperature(arguments[0]);
+        }
+        var myWellPointIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/jxj.png", new BMap.Size(50, 50));
+
+        // 添加井室
+        function AddWellPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            //map.panTo(point);
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myWellPointIcon,
+                    size: new BMap.Size(50, 50)
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + "检修井</h4>" +
+            "<p>ProjectNo： " + arguments[2] + "</p>" +
+            "<p>SurveyID： " + arguments[3] + "</p>" +
+            "<p>埋深： " + arguments[4] + "</p>" +
+            "<p>街道： " + arguments[5] + "</p>" +
+            "<p>进/回水类型： " + arguments[6] + "</p>";
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+
+            var myoverlays = map.getOverlays();
+            var targetOverlay = myoverlays[myoverlays.length - 1];
+            targetOverlay.ba = "jianxiujing";
+
+        }
+
+        // 量距
+        function distance_ruler() {
+            var myDis = new BMapLib.DistanceTool(map);
+            myDis.open();
+        }
+
+        var drawingManager = null;
+
+        function handler() {
+
+            var overlaycomplete = function (e) {
+                if (e.drawingMode == "marker") {
+                    // 画的是点
+                } else if (e.drawingMode == "circle") {
+                    // 画的是圆
+                    //console.log(e.overlay);
+                }
+                else if (e.drawingMode == "polyline") {
+                    // 画的是多段线
+                    var dataArr = e.overlay.to;
+                    var lineDataStr = "";
+                    for (var i in dataArr) {
+                        lineDataStr += dataArr[i].lng + "," + dataArr[i].lat + "\n";
+                    }
+                    window.external.manYouLuXian(lineDataStr);
+                } else if (e.drawingMode == "polygon") {
+                    var data = "";
+                    for (var i = 0; i < e.overlay.ia.length; i++) {
+                        //data += e.overlay.to[i].lng + "," + e.overlay.to[i].lat + ";";
+                        data += e.overlay.ia[i].lng + "," + e.overlay.ia[i].lat + ";";
+                    }
+                    window.external.polyonSelect(data);
+                    // 画的是多边形
+                } else if (e.drawingMode == "rectangle") {
+                    // 画的是矩形
+                    var data = e.overlay.ia[0].lng + "," + e.overlay.ia[2].lat + "," + e.overlay.ia[2].lng + "," + e.overlay.ia[0].lat;
+                    window.external.boxSelect(data);
+                }
+            };
+            var styleOptions = {
+                strokeColor: "#0000ff",    //边线颜色。
+                fillColor: "#ffffff",      //填充颜色。当参数为空时，圆形将没有填充效果。
+                strokeWeight: 3,       //边线的宽度，以像素为单位。
+                strokeOpacity: 0.8,	   //边线透明度，取值范围0 - 1。
+                fillOpacity: 0.6,      //填充的透明度，取值范围0 - 1。
+                strokeStyle: 'solid'   //边线的样式，solid或dashed。
+            }
+            //实例化鼠标绘制工具
+            drawingManager = new BMapLib.DrawingManager(map, {
+                isOpen: false,                      //是否开启绘制模式
+                enableDrawingTool: arguments[0],   //是否显示工具栏
+                drawingToolOptions: {
+                    //anchor: BMAP_ANCHOR_TOP_RIGHT,  //位置
+                    anchor: BMAP_ANCHOR_TOP_LEFT,     //位置
+                    offset: new BMap.Size(60, 0)       //偏离值
+
+                },
+                circleOptions: styleOptions,   //圆的样式
+                polylineOptions: styleOptions, //线的样式
+                polygonOptions: styleOptions,  //多边形的样式
+                rectangleOptions: styleOptions //矩形的样式
+            });
+            //添加鼠标绘制工具监听事件，用于获取绘制结果
+            drawingManager.addEventListener('overlaycomplete', overlaycomplete);
+            return drawingManager;
+        }
+
+        function closeTool() {
+            drawingManager.close();
+            $('.BMapLib_Drawing_panel').hide();
+        }
+
+
+        // 绘制所站
+        function drawSuozhan() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/ico/mark_d2.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(50, 50),
+                    title: arguments[3]
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[3] + "换热站</h4>" +
+            "<p> 上级单位ID: " + arguments[2] + "</p>" +
+            "<p> 换热站名称: " + arguments[3] + "</p>";
+
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        // 绘制所站井室
+        function drawSuozhanJingShi() {
+
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/ico/map_j2.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(50, 50),
+                    title: arguments[2]
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[2] + "井室</h4>" +
+            "<p> 所站井室编号: " + arguments[2] + "</p>" +
+            "<p> 所站编号: " + arguments[3] + "</p>";
+
+
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        // 绘制楼号信息
+        function drawLouHaoXinXi() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point)
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/ico/mark_l2.png", new BMap.Size(50, 50));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(50, 50),
+                    title: arguments[2]
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[2] + "井室</h4>" +
+            "<p> 楼号ID: " + arguments[2] + "</p>" +
+            "<p> 所站ID: " + arguments[3] + "</p>";
+
+
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        //drawDanWei
+        // 绘制所站
+        function drawDanWei() {
+            var point = new BMap.Point(arguments[6], arguments[7]);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/g.png", new BMap.Size(10, 10));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(50, 50),
+                    title: arguments[3]
+                });
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[0] + "供暖单位</h4>" +
+            "<p> 名称编号: " + arguments[0] + "</p>" +
+            "<p> 名称: " + arguments[1] + "</p>" +
+            "<p> 地址: " + arguments[2] + "</p>" +
+            "<p> 备注: " + arguments[3] + "</p>" +
+            "<p> 日期: " + arguments[4] + "</p>" +
+            "<p> 类别: " + arguments[5] + "</p>";
+
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+            map.panTo(point);
+        }
+
+        function drawDemoWellPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/r.png", new BMap.Size(10, 10));
+            map.panTo(point);
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(30, 30),
+                    title: arguments[7] + "号井室"
+                });
+            var label = new BMap.Label(arguments[7], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[7] + "号井室</h4>" +
+            "<p> 埋设年份: " + arguments[2] + "</p>" +
+            "<p> 所在街道路段: " + arguments[3] + "</p>" +
+            "<p> 标记: " + arguments[4] + "</p>" +
+            "<p> 井室类型: " + arguments[5] + "</p>" +
+            "<p> 厂家: " + arguments[6] + "</p>";
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        function drawDemoBuchangqiPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/g1.png", new BMap.Size(10, 10));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(30, 30),
+                    title: arguments[7] + "号补偿器"
+                });
+            var label = new BMap.Label(arguments[7], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[7] + "号补偿器</h4>" +
+            "<p> 埋设年份: " + arguments[2] + "</p>" +
+            "<p> 所在街道路段: " + arguments[3] + "</p>" +
+            "<p> 标记: " + arguments[4] + "</p>" +
+            "<p> 补偿器类型: " + arguments[5] + "</p>" +
+            "<p> 厂家: " + arguments[6] + "</p>";
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        function drawDemoGuDingDunPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/y.png", new BMap.Size(10, 10));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    title: arguments[7] + "号固定墩"
+                });
+            var label = new BMap.Label(arguments[7], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[7] + "号固定墩</h4>" +
+            "<p> 埋设年份: " + arguments[2] + "</p>" +
+            "<p> 所在街道路段: " + arguments[3] + "</p>" +
+            "<p> 标记: " + arguments[4] + "</p>" +
+            "<p> 固定墩类型: " + arguments[5] + "</p>" +
+            "<p> 厂家: " + arguments[6] + "</p>";
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        function drawDemoFaMenPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/b1.png", new BMap.Size(10, 10));
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    title: arguments[7] + "号阀门",
+                    color: '#d340c3'
+                });
+            var label = new BMap.Label(arguments[7], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[7] + "号阀门</h4>" +
+            "<p> 埋设年份: " + arguments[2] + "</p>" +
+            "<p> 所在街道路段: " + arguments[3] + "</p>" +
+            "<p> 标记: " + arguments[4] + "</p>" +
+            "<p> 阀门类型: " + arguments[5] + "</p>" +
+            "<p> 厂家: " + arguments[6] + "</p>";
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        // 绘制换热站标注
+        function drawStation() {
+            var point = new BMap.Point(arguments[2], arguments[3]);
+            map.panTo(point);
+            var myIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/p.png", new BMap.Size(10, 10));
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myIcon,
+                    size: new BMap.Size(10, 10),
+                    title: arguments[1]
+                });
+            var label = new BMap.Label(arguments[1], { offset: new BMap.Size(20, -10) });
+
+            var html =
+            "<h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[1] + "号换热站</h4>" +
+            "<p> 换热站名称: " + arguments[1] + "</p>" +
+            "<p> 换热站编号: " + arguments[0] + "</p>";
+
+            marker.setLabel(label);
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+        function searchKeywords() {
+            var local = new BMap.LocalSearch(map, {
+                renderOptions: { map: map }
+            });
+            local.search(arguments[0]);
+        }
+
+        // 绘制楼号线
+        function selectedLines() {
+
+            var arr = [];
+            arr.push(new BMap.Point(arguments[0], arguments[1]));
+            arr.push(new BMap.Point(arguments[2], arguments[3]));
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: "#336600",
+                strokeWeight: 4
+            });
+            map.addOverlay(polyline);
+            map.panTo(new BMap.Point(arguments[0], arguments[1]))
+
+        }
+
+        var mypipelineSpcacialPointIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/spacialPoint.png", new BMap.Size(50, 50));
+        // 二维标注上下翻
+        function AddpipelineSpacialPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: mypipelineSpcacialPointIcon,
+                    size: new BMap.Size(50, 50)
+                });
+            map.addOverlay(marker);
+        }
+
+        // 二维绘制井盖单个
+        var mypipelinewellsIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/wells.png", new BMap.Size(20, 20));
+        function Addpipelinewell() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: mypipelinewellsIcon,
+                    size: new BMap.Size(20, 20)
+                });
+            map.addOverlay(marker);
+        }
+
+        // 二维绘制井盖全部
+        function Addpipelinewells() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: mypipelinewellsIcon,
+                    size: new BMap.Size(20, 20),
+                    title: arguments[2]
+                });
+            var html =
+"<div ><h4 style='margin:0 0 5px 0;padding:0.2em 0'>" + arguments[2] + "</h4>" +
+"<p> 所在街道: " + arguments[4] + "</p>" +
+"<p> 井室附属: " + arguments[5] + "</p>" +
+"<p> 权属单位: " + arguments[6] + "</p>" +
+"<p> 探测单位: " + arguments[7] + "</p>" +
+"<p> 井盖材料: " + arguments[8] + "</p>" +
+"<p> 井盖规格: " + arguments[9] + "</p>" +
+"<div style='width:400px;'><img style='display:block;width:380px;' src='http://dongdacehui.com:8080/imgServ/neuwells/" + arguments[3] + "'></div></div>";
+            var infoWindow = new BMap.InfoWindow(html);
+            map.addOverlay(marker);
+            marker.addEventListener('click', function () {
+                this.openInfoWindow(infoWindow);
+            });
+        }
+
+
+        // 绘制模型区域
+        function drawBoundaryArea(boundary) {
+            var arr = [];
+            var eachPoint = boundary.split(';');
+            for (var i in eachPoint) {
+                if (eachPoint[i].length < 2) {
+                    continue;
+                }
+
+                var point = eachPoint[i].split(',');
+
+                arr[i] = new BMap.Point(parseFloat(point[0]), parseFloat(point[1]));
+            }
+
+            var polygon = new BMap.Polygon(
+                arr,
+            {
+                strokeColor: "skyblue",
+                strokeWeight: 2,
+                strokeOpacity: 0.6,
+                fillOpacity: 0.6
+            });
+
+            map.addOverlay(polygon);
+        }
+
+
+
+        //getStreetStr(1, 123.439137, 41.814402);
+
+        function getStreetStr() {
+            var geoc = new BMap.Geocoder();
+            var id = arguments[0];
+            var tableName = arguments[1];
+            var pt = new BMap.Point(parseFloat(arguments[2]), parseFloat(arguments[3]));
+
+            geoc.getLocation(pt, function (rs) {
+
+                var addComp = rs.addressComponents;
+                //console.log(id + "$" + addComp.province + ", " + addComp.city + ", " + addComp.district + ", " + addComp.street + ", " + addComp.streetNumber + "$" + addComp.street);
+                window.external.returnSomething(id + "," + tableName + "$" + addComp.province + ", " + addComp.city + ", " + addComp.district + ", " + addComp.street + ", " + addComp.streetNumber + "$" + addComp.street);
+
+            });
+
+        }
+
+        // 改变中心点
+        function changeCenterPosition() {
+            var lng = parseFloat(arguments[0]);
+            var lat = parseFloat(arguments[1]);
+            var point = new BMap.Point(lng, lat)
+            map.setCenter(point);
+        }
+
+
+        //返回所有覆盖物的名称
+        function getAllOverlayName() {
+            var myoverlays = map.getOverlays();
+            var res = "";
+            for (j = 0, len = myoverlays.length; j < len; j++) {
+                res += "" + myoverlays[j].ba;
+                if (j != len - 1) {
+                    res += ",";
+                }
+            }
+            return res;
+        }
+
+        //按名称判断覆盖物是否存在
+        function isOverlayExists(overlayName) {
+            var myoverlays = map.getOverlays();
+            for (j = 0, len = myoverlays.length; j < len; j++) {
+                if (myoverlays[j].ba == overlayName) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        ////通过名称获取覆盖物对象数组（没有的话返回 null）
+        //function getOverlayByName(overlayName)
+        //{
+        //	var myoverlays = map.getOverlays();
+        //	if(isOverlayExists(overlayName))//先判断图层是否存在
+        //	{
+        //		for(j = 0,len=myoverlays.length; j < len; j++) {
+        //			if(myoverlays[j].ba == overlayName)
+        //			{
+        //				return myoverlays[j];
+        //			}
+        //		}
+        //	}
+        //	else
+        //	{
+        //		return null;
+        //	}
+        //}
+
+
+        //按名称判断覆盖物是否显示(没有的话返回 false)
+        function isSpOverlayShow(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0, len = myoverlays.length; j < len; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        return myoverlays[j].isVisible();
+                    }
+                }
+                return false;
+            }
+            else {
+                return false;
+            }
+        }
+
+        //显示所有覆盖物
+        function showAllOverlays() {
+            var myoverlays = map.getOverlays();
+            for (j = 0, len = myoverlays.length; j < len; j++) {
+                myoverlays[j].show();
+            }
+        }
+
+        //显示指定名称覆盖物
+        function showSpOverlay(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0, len = myoverlays.length; j < len; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        myoverlays[j].show();
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        //隐藏指定名称覆盖物
+        function hideSpOverlay(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0, len = myoverlays.length; j < len; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        myoverlays[j].hide();
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        //隐藏所有覆盖物
+        function hideAllOverlays() {
+            var myoverlays = map.getOverlays();
+            for (j = 0, len = myoverlays.length; j < len; j++) {
+                myoverlays[j].hide();
+            }
+        }
+
+
+
+        //删除指定名称覆盖物
+        function deleteSpOverlay(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        map.removeOverlay(myoverlays[j]);
+
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+
+        //删除所有覆盖物
+        function deleteAllOverlays() {
+            map.clearOverlays();
+        }
+
+
+        map.disableKeyboard();
+
+        //-----------------------------------------------------------------------------------
+        //只针对线、多边形(对点无效)
+        function getSpOverlayColor(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        return myoverlays[j].getStrokeColor()
+                    }
+                }
+            }
+            else {
+                return "";
+            }
+        }
+
+        //修改指定名称覆盖物颜色
+        function setSpOverlayColor(overlayName, color) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        myoverlays[j].setStrokeColor(color)
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        function getSpOverlayOpacity(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        return myoverlays[j].getStrokeOpacity()
+                    }
+                }
+
+            }
+            else {
+                return "1"
+            }
+        }
+
+        //修改指定名称覆盖物透明度
+        function setSpOverlayOpacity(overlayName, num) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        myoverlays[j].setStrokeOpacity(num)
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        function getSpOverlayWeight(overlayName) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        return myoverlays[j].getStrokeWeight()
+                    }
+                }
+            }
+            else {
+                return "1"
+            }
+        }
+
+        //修改指定名称覆盖物线宽
+        function setSpOverlayWeight(overlayName, num) {
+            var myoverlays = map.getOverlays();
+            if (isOverlayExists(overlayName))//先判断图层是否存在
+            {
+                for (j = 0; j < myoverlays.length; j++) {
+                    if (myoverlays[j].ba == overlayName) {
+                        myoverlays[j].setStrokeWeight(num)
+                    }
+                }
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+
+        //------------------------------------------------------------------------
+        var LayerWeight = [];//全局线宽
+        var LayerColor = [];//全局显色
+        var LayerOpacity = [];//全局透明度
+
+        function setLayerWeight(num, value) {
+            LayerWeight[num] = value;
+        }
+
+        function setLayerColor(num, value) {
+            LayerColor[num] = value;
+        }
+
+        function setLayerOpacity(num, value) {
+            LayerOpacity[num] = value;
+        }
+
+        //清除主图层外的其他图层
+        function clearOtherOverlay() {
+            var myoverlays = map.getOverlays();
+            for (j = 0; j < myoverlays.length; j++) {
+                if (myoverlays[j].ba != "zhuganxian"
+                && myoverlays[j].ba != "fenzhixian"
+                && myoverlays[j].ba != "tuzhi"
+                && myoverlays[j].ba != "loudian"
+                && myoverlays[j].ba != "huanrezhan"
+                && myoverlays[j].ba != "jianxiujing"
+                && myoverlays[j].ba != "moxing") {
+                    map.removeOverlay(myoverlays[j]);
+                }
+            }
+        }
+
+        var myBrustPointIcon = new BMap.Icon("http://202.118.16.50:8080/imgServ/pipe/brustAnimation.png", new BMap.Size(50, 50));
+        // 二维标注爆管分析位置
+        function AddBrustPoint() {
+            var point = new BMap.Point(arguments[0], arguments[1]);
+            map.panTo(point);
+
+            var marker = new BMap.Marker(point,
+                {
+                    icon: myBrustPointIcon,
+                    size: new BMap.Size(50, 50)
+                });
+            marker.setAnimation(BMAP_ANIMATION_BOUNCE);
+            map.addOverlay(marker);
+        }
+        function AddbrustLine() {
+            var arr = [];
+            arr.push(new BMap.Point(arguments[0], arguments[1]));
+            arr.push(new BMap.Point(arguments[2], arguments[3]));
+            var polyline = new BMap.Polyline(
+            arr,
+            {
+                strokeColor: "#336600",
+                strokeWeight: 4
+            });
+            map.addOverlay(polyline);
+            map.panTo(new BMap.Point(arguments[0], arguments[1]))
+        }
+		
+		
+		function _add_stations(lon, lat, station_name){
+			let pt = new BMap.Point(lon, lat)
+			let marker = new BMap.Marker(pt, {
+				icon: new BMap.Symbol(BMap_Symbol_SHAPE_POINT, {
+					scale: 1,//图标缩放大小
+					fillColor: '#4D4DFF',//填充颜色
+					fillOpacity: 1//填充透明度
+				})
+			});
+			let label = new BMap.Label(station_name, {offset: new BMap.Size(20, -10)});
+			marker.setLabel(label);
+			marker.addEventListener('click', function (e) {
+				console.log(e)
+			});
+			map.addOverlay(marker);
+		}
+		
+		
+_add_stations(116.9905,30.6168,'ahaq')
+_add_stations(117.2962,32.9045,'ahbb')
+_add_stations(115.8924,39.6086,'bjfs')
+_add_stations(117.1580,40.6923,'bjgb')
+_add_stations(116.2237,40.2505,'bjsh')
+_add_stations(115.9678,40.3703,'bjyq')
+_add_stations(125.4442,43.7906,'chan')
+_add_stations(125.4441,43.7903,'chun')
+_add_stations(107.2322,29.9052,'cqcs')
+_add_stations(108.4902,30.7699,'cqwz')
+_add_stations(97.3777,37.3805,'dlha')
+_add_stations(100.2005,40.9837,'dxin')
+_add_stations(119.7687,25.5021,'fjpt')
+_add_stations(117.9850,27.6168,'fjwy')
+_add_stations(120.0185,26.8770,'fjxp')
+_add_stations(113.5877,24.8461,'gdsg')
+_add_stations(116.6030,23.4178,'gdst')
+_add_stations(113.5668,22.2753,'gdzh')
+_add_stations(110.3039,21.1548,'gdzj')
+_add_stations(95.7611,40.5161,'gsax')
+_add_stations(94.6846,40.1434,'gsdh')
+_add_stations(104.6046,35.5543,'gsdx')
+_add_stations(102.8894,37.4547,'gsgl')
+_add_stations(99.8135,39.4099,'gsgt')
+_add_stations(105.7595,35.5266,'gsjn')
+_add_stations(104.0570,37.1806,'gsjt')
+_add_stations(98.2154,39.8083,'gsjy')
+_add_stations(104.6463,34.9949,'gslx')
+_add_stations(103.6713,36.0784,'gslz')
+_add_stations(102.0582,34.0196,'gsma')
+_add_stations(100.8176,38.4410,'gsml')
+_add_stations(103.0880,38.6323,'gsmq')
+_add_stations(104.0229,34.4300,'gsmx')
+_add_stations(106.5863,35.5477,'gspl')
+_add_stations(106.2118,34.7456,'gsqs')
+_add_stations(105.9053,34.4845,'gsts')
+_add_stations(104.8151,33.4228,'gswd')
+_add_stations(113.3396,23.1847,'guan')
+_add_stations(109.2124,21.6525,'gxbh')
+_add_stations(106.6706,23.9172,'gxbs')
+_add_stations(110.3063,25.1863,'gxgl')
+_add_stations(108.0390,24.6949,'gxhc')
+_add_stations(108.1469,22.5679,'gxnn')
+_add_stations(111.2335,23.4802,'gxwz')
+_add_stations(107.7264,27.9805,'gzfg')
+_add_stations(106.6689,26.4725,'gzgy')
+_add_stations(104.8626,26.5858,'gzsc')
+_add_stations(114.5191,35.6584,'hahb')
+_add_stations(112.4474,35.1625,'hajy')
+_add_stations(114.0265,32.8451,'haqs')
+_add_stations(109.4949,30.2764,'hbes')
+_add_stations(112.1688,31.1183,'hbjm')
+_add_stations(112.0415,32.0026,'hbxf')
+_add_stations(110.9652,30.8348,'hbzg')
+_add_stations(115.8404,40.8837,'hecc')
+_add_stations(117.9179,41.0163,'hecd')
+_add_stations(116.9309,38.4648,'hecx')
+_add_stations(114.3092,38.2474,'helq')
+_add_stations(114.7073,37.3987,'hely')
+_add_stations(118.2953,39.7358,'hets')
+_add_stations(114.1559,40.1272,'heyy')
+_add_stations(114.9001,40.8280,'hezj')
+_add_stations(110.2469,19.9944,'hihk')
+_add_stations(109.5305,18.2357,'hisy')
+_add_stations(112.8803,9.5389,'hiys')
+_add_stations(119.7412,49.2704,'hlar')
+_add_stations(134.2771,48.3669,'hlfy')
+_add_stations(130.2356,47.3527,'hlhg')
+_add_stations(122.5127,52.9750,'hlmh')
+_add_stations(126.1361,48.6714,'hlwd')
+_add_stations(113.0379,28.1585,'hncs')
+_add_stations(113.6307,28.1561,'hnly')
+_add_stations(109.7965,27.8780,'hnmy')
+_add_stations(126.6203,45.7026,'hrbn')
+_add_stations(117.5304,40.0760,'jixn')
+_add_stations(128.1059,42.4105,'jlcb')
+_add_stations(123.5199,44.5545,'jlcl')
+_add_stations(129.5045,42.8747,'jlyj')
+_add_stations(119.4188,31.3488,'jsls')
+_add_stations(119.4674,34.7220,'jsly')
+_add_stations(120.8896,31.9528,'jsnt')
+_add_stations(120.0191,33.3762,'jsyc')
+_add_stations(116.2390,29.7329,'jxhk')
+_add_stations(115.0580,26.7480,'jxja')
+_add_stations(102.7978,25.0295,'kmin')
+_add_stations(102.1654,19.8982,'lalb')
+_add_stations(104.9782,18.1919,'lalx')
+_add_stations(91.1039,29.6573,'lhas')
+_add_stations(91.1040,29.6573,'lhaz')
+_add_stations(124.3272,40.0316,'lndd')
+_add_stations(120.8518,40.6876,'lnhl')
+_add_stations(121.7401,39.0918,'lnjz')
+_add_stations(123.5794,41.8270,'lnsy')
+_add_stations(122.6030,40.6835,'lnyk')
+_add_stations(105.4136,28.8724,'luzh')
+_add_stations(122.6272,43.3034,'nmag')
+_add_stations(120.1129,43.8633,'nmal')
+_add_stations(101.6785,39.2084,'nmay')
+_add_stations(105.6684,38.8143,'nmaz')
+_add_stations(110.0213,40.6037,'nmbt')
+_add_stations(116.9630,45.5131,'nmdw')
+_add_stations(101.0600,41.9566,'nmej')
+_add_stations(111.9421,43.6348,'nmel')
+_add_stations(123.7271,50.5764,'nmer')
+_add_stations(111.2515,40.2611,'nmtk')
+_add_stations(106.8386,39.6638,'nmwh')
+_add_stations(108.0731,41.2993,'nmwj')
+_add_stations(122.0272,46.0406,'nmwl')
+_add_stations(107.0612,41.0787,'nmwt')
+_add_stations(115.9804,42.2332,'nmzl')
+_add_stations(105.6458,36.5539,'nxhy')
+_add_stations(106.2737,38.4941,'nxyc')
+_add_stations(105.2436,37.5860,'nxzw')
+_add_stations(100.7411,32.9316,'qhbm')
+_add_stations(98.0964,36.2962,'qhdl')
+_add_stations(100.1301,37.3333,'qhgc')
+_add_stations(94.7716,36.1452,'qhge')
+_add_stations(93.3313,38.7442,'qhlh')
+_add_stations(98.2080,34.9201,'qhmd')
+_add_stations(100.2490,34.4783,'qhmq')
+_add_stations(90.8011,38.4751,'qhmy')
+_add_stations(100.2375,38.1858,'qhql')
+_add_stations(102.0098,35.5160,'qhtr')
+_add_stations(92.4375,34.2166,'qhtt')
+_add_stations(97.0146,33.0094,'qhys')
+_add_stations(109.8450,19.0294,'qion')
+_add_stations(106.7446,31.8408,'scbz')
+_add_stations(101.1227,30.9778,'scdf')
+_add_stations(105.8997,32.4248,'scgu')
+_add_stations(105.8522,32.4389,'scgy')
+_add_stations(100.0188,31.6103,'scgz')
+_add_stations(101.5003,29.0080,'scjl')
+_add_stations(104.5157,28.1791,'scju')
+_add_stations(100.6719,31.3877,'sclh')
+_add_stations(100.2180,29.9916,'sclt')
+_add_stations(103.5335,28.8404,'scmb')
+_add_stations(101.2753,27.9294,'scml')
+_add_stations(102.1738,28.3328,'scmn')
+_add_stations(103.8495,31.6711,'scmx')
+_add_stations(105.8822,30.9792,'scnc')
+_add_stations(102.7164,27.0569,'scnn')
+_add_stations(101.7439,26.5031,'scpz')
+_add_stations(102.3536,29.2293,'scsm')
+_add_stations(105.5620,30.5075,'scsn')
+_add_stations(103.5824,32.6484,'scsp')
+_add_stations(102.7650,30.0735,'sctq')
+_add_stations(99.8032,28.9373,'scxc')
+_add_stations(102.4370,28.3003,'scxd')
+_add_stations(102.3721,31.0003,'scxj')
+_add_stations(102.5114,28.6508,'scyx')
+_add_stations(101.5125,27.4319,'scyy')
+_add_stations(119.4597,36.7536,'sdcy')
+_add_stations(116.3505,35.4269,'sdjx')
+_add_stations(118.2879,35.0003,'sdly')
+_add_stations(120.3038,36.0766,'sdqd')
+_add_stations(122.4207,37.1702,'sdrc')
+_add_stations(121.4355,37.4825,'sdyt')
+_add_stations(117.9917,36.8064,'sdzb')
+_add_stations(121.2004,31.0996,'sha2')
+_add_stations(121.2004,31.0996,'shao')
+_add_stations(108.7733,32.7935,'snak')
+_add_stations(110.0766,34.4813,'snhy')
+_add_stations(106.6881,33.1264,'snmx')
+_add_stations(107.3186,34.0574,'sntb')
+_add_stations(108.3886,35.1686,'snxy')
+_add_stations(109.4573,36.6239,'snya')
+_add_stations(130.9080,44.4333,'suiy')
+_add_stations(113.1801,36.2246,'sxcz')
+_add_stations(113.3924,40.1223,'sxdt')
+_add_stations(111.8999,36.2521,'sxgx')
+_add_stations(111.6035,38.8028,'sxkl')
+_add_stations(111.3714,36.0842,'sxlf')
+_add_stations(114.0214,39.3819,'sxlq')
+_add_stations(112.4325,37.7115,'sxty')
+_add_stations(111.2344,35.1050,'sxxx')
+_add_stations(112.8917,37.6323,'sxyc')
+_add_stations(117.1231,36.2144,'tain')
+_add_stations(75.2336,37.7749,'tash')
+_add_stations(117.3991,39.6974,'tjbd')
+_add_stations(117.6891,39.0837,'tjbh')
+_add_stations(117.1029,39.3754,'tjwq')
+_add_stations(118.1969,39.6067,'tsln')
+_add_stations(118.1970,39.6068,'tsta')
+_add_stations(118.1969,39.6068,'tstb')
+_add_stations(87.6006,43.8080,'uru2')
+_add_stations(87.6006,43.8080,'urum')
+_add_stations(114.3572,30.5316,'wuhn')
+_add_stations(79.2097,41.2023,'wush')
+_add_stations(108.9856,34.1782,'xiaa')
+_add_stations(100.2546,25.6080,'xiag')
+_add_stations(118.0826,24.4498,'xiam')
+_add_stations(88.1349,47.8555,'xjal')
+_add_stations(78.7703,39.8138,'xjbc')
+_add_stations(86.8560,47.6948,'xjbe')
+_add_stations(74.9711,38.6508,'xjbl')
+_add_stations(83.7156,42.8291,'xjby')
+_add_stations(84.8857,44.3109,'xjds')
+_add_stations(89.5392,46.9989,'xjfy')
+_add_stations(79.0451,37.1620,'xjht')
+_add_stations(94.3358,42.8488,'xjjj')
+_add_stations(82.9785,41.7251,'xjkc')
+_add_stations(86.1895,41.7920,'xjke')
+_add_stations(84.9125,45.6102,'xjkl')
+_add_stations(90.2959,43.8093,'xjml')
+_add_stations(90.9788,46.1507,'xjqh')
+_add_stations(85.5304,38.1186,'xjqm')
+_add_stations(88.1704,39.0220,'xjrq')
+_add_stations(86.1060,44.2080,'xjsh')
+_add_stations(90.2570,42.8927,'xjss')
+_add_stations(82.8753,46.8239,'xjtc')
+_add_stations(83.6593,38.9686,'xjtz')
+_add_stations(86.7192,42.9228,'xjwl')
+_add_stations(80.9987,44.9600,'xjwq')
+_add_stations(75.2378,39.7398,'xjwu')
+_add_stations(83.2567,43.3976,'xjxy')
+_add_stations(77.4455,37.8503,'xjyc')
+_add_stations(81.5262,43.9724,'xjyn')
+_add_stations(81.9690,36.4328,'xjyt')
+_add_stations(80.3643,42.6764,'xjzs')
+_add_stations(101.7743,36.6006,'xnin')
+_add_stations(87.1838,29.2685,'xzar')
+_add_stations(81.4280,30.8365,'xzbg')
+_add_stations(97.1735,31.1349,'xzcd')
+_add_stations(97.4658,28.6612,'xzcy')
+_add_stations(91.0972,30.4800,'xzdx')
+_add_stations(80.1067,32.5199,'xzge')
+_add_stations(84.0710,32.2921,'xzgz')
+_add_stations(87.2340,31.7955,'xznm')
+_add_stations(92.1085,31.4918,'xznq')
+_add_stations(88.8650,29.2486,'xzrk')
+_add_stations(79.7179,33.3925,'xzrt')
+_add_stations(88.8345,33.2036,'xzsh')
+_add_stations(88.9063,27.4371,'xzyd')
+_add_stations(84.1563,29.6803,'xzzb')
+_add_stations(86.9406,28.3572,'xzzf')
+_add_stations(107.4371,37.7785,'yanc')
+_add_stations(101.4928,25.0495,'yncx')
+_add_stations(103.1808,26.1079,'yndc')
+_add_stations(99.3923,23.5460,'yngm')
+_add_stations(103.2916,26.4082,'ynhz')
+_add_stations(100.8808,24.4371,'ynjd')
+_add_stations(103.2319,22.7861,'ynjp')
+_add_stations(99.9535,22.5602,'ynla')
+_add_stations(100.0754,23.8677,'ynlc')
+_add_stations(100.0293,26.6956,'ynlj')
+_add_stations(100.4511,21.9481,'ynmh')
+_add_stations(101.6748,23.4160,'ynmj')
+_add_stations(103.3818,24.3963,'ynml')
+_add_stations(103.4038,23.3559,'ynmz')
+_add_stations(97.8453,24.0004,'ynrl')
+_add_stations(99.1902,24.7128,'ynsd')
+_add_stations(101.0493,22.7405,'ynsm')
+_add_stations(98.4383,24.9545,'yntc')
+_add_stations(102.7514,24.1183,'ynth')
+_add_stations(104.2486,23.4131,'ynws')
+_add_stations(101.9061,24.1024,'ynxp')
+_add_stations(101.3273,25.7234,'ynya')
+_add_stations(99.3716,25.8846,'ynyl')
+_add_stations(101.8609,25.6893,'ynym')
+_add_stations(100.7538,26.6831,'ynys')
+_add_stations(99.6979,27.8231,'ynzd')
+_add_stations(112.3353,16.8340,'yong')
+_add_stations(113.1048,34.5207,'zhnz')
+_add_stations(119.2743,29.4747,'zjjd')
+_add_stations(120.7628,27.9341,'zjwz')
+_add_stations(121.9885,30.0707,'zjzs')
+
+
+    </script>
+
+</body>
+</html>

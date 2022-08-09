@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>MapVGL</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <style>
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+    #map_container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+    }
+    </style>
+    <script src="http://api.map.baidu.com/api?v=1.0&type=webgl&ak=RQ6KOr913IqFSANnqEs0OZ3qWeutVB1I"></script>
+    <script src="http://mapv.baidu.com/build/mapv.min.js"></script>
+    <script src="https://mapv.baidu.com/gl/examples/static/common.js"></script>
+    <script src="https://code.bdstatic.com/npm/mapvgl@1.0.0-beta.152/dist/mapvgl.min.js"></script>
+	<script src="https://api.map.baidu.com/res/webgl/10/worker_wasm_4i3lbq.js"></script>
+</head>
+<body>
+    <div id="map_container"></div>
+    <script>
+    /* global BMapGL */
+
+    /* global mapv */
+
+    /* global mapvgl */
+
+    /* global initMap */
+
+    /* global darkStyle */
+    var map = initMap({
+        //tilt: 30,
+        //heading: 0,
+        center: [109.792816,27.702774],
+        zoom: 5,
+        // style: darkStyle
+    });
+
+    // 构造数据
+	var data = [
+		{ geometry: {type: 'Point', coordinates: [119.7687, 25.5021]}, properties: {text: 'fjpt', shadowSize: 40, fillSize: 20}},
+		{ geometry: {type: 'Point', coordinates: [117.9850, 27.6168]}, properties: {text: 'fjwy', shadowSize: 40, fillSize: 20}},
+		{ geometry: {type: 'Point', coordinates: [120.0185, 26.8770]}, properties: {text: 'fjxp', shadowSize: 40, fillSize: 20}},
+		{ geometry: {type: 'Point', coordinates: [113.5877, 24.8461]}, properties: {text: 'gdsg', shadowSize: 40, fillSize: 20}},
+		{ geometry: {type: 'Point', coordinates: [116.6030, 23.4178]}, properties: {text: 'gdst', shadowSize: 40, fillSize: 20}},
+		{ geometry: {type: 'Point', coordinates: [113.5668, 22.2753]}, properties: {text: 'gdzh', shadowSize: 40, fillSize: 20}},
+	];                                            
+
+
+    var view = new mapvgl.View({
+        map: map
+    });
+
+    var textLayer = new mapvgl.MarkerListLayer({
+        enablePicked: true,
+        autoSelect: true,
+        selectedColor: '#00f', // 选中项颜色
+        onClick: e => {console.log(e)}
+    });
+
+    view.addLayer(textLayer);
+    textLayer.setData(data);
+    </script>
+</body>
+</html>
